@@ -1,5 +1,5 @@
 @baseUrl = http://localhost:5238
-@documentId = 2
+@documentId = 3
 
 ### Ustaw skanowanie jako zakończone i zaakceptowane
 POST {{baseUrl}}/api/scanned-documents/{{documentId}}/status

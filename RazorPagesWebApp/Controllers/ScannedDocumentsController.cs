@@ -4,7 +4,7 @@ namespace RazorPagesWebApp.Controllers;
 
 [ApiController]
 [Route("api/scanned-documents")]
-public sealed class ScannedDocumentsController(DocumentStore documentStore) : ControllerBase
+public sealed class ScannedDocumentsController(DocumentStore documentStore, ScanStatusEvents statusEvents) : ControllerBase
 {
     private static readonly HashSet<string> AllowedStatuses = new(StringComparer.Ordinal)
     {
@@ -30,6 +30,7 @@ public sealed class ScannedDocumentsController(DocumentStore documentStore) : Co
         if (!updated)
             return NotFound(new { error = "Nie znaleziono dokumentu lub jego rekordu skanowania." });
 
+        statusEvents.Publish(new ScanStatusChanged(documentId, request.Status));
         return Ok(new { documentId, status = request.Status });
     }
 }

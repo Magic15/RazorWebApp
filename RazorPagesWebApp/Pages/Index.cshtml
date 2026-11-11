@@ -31,10 +31,10 @@ else
             <tbody>
             @foreach (var document in Model.Documents)
             {
-                <tr>
+                <tr data-document-id="@document.Id">
                     <td>@document.FileName</td>
                     <td>@document.DocumentType</td>
-                    <td>@document.ScanStatus</td>
+                    <td class="scan-status">@document.ScanStatus</td>
                     <td>@document.UploadedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                     <td class="text-end"><a class="btn btn-sm btn-outline-secondary" asp-page-handler="Download" asp-route-id="@document.Id">Pobierz</a></td>
                 </tr>
@@ -74,6 +74,19 @@ else
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (!window.EventSource) return;
+
+        const events = new EventSource('?handler=StatusEvents');
+        events.addEventListener('scan-status', event => {
+            const update = JSON.parse(event.data);
+            const row = document.querySelector(`[data-document-id="${update.documentId}"] .scan-status`);
+            if (row) row.textContent = update.status;
+        });
+    });
+</script>
 
 @if (!ViewData.ModelState.IsValid)
 {
