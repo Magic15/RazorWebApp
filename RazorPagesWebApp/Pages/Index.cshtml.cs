@@ -56,11 +56,13 @@ public class IndexModel : PageModel
 
     public async Task<IActionResult> OnGetDownloadAsync(long id)
     {
-        var document = await _documentStore.GetAsync(id);
-        if (document is null)
+        var download = await _documentStore.GetDownloadAsync(id);
+        if (download is null)
             return NotFound();
+        if (download.Status != "Approved")
+            return Forbid();
 
-        return File(document.Data, document.ContentType, document.FileName);
+        return File(download.Document.Data, download.Document.ContentType, download.Document.FileName);
     }
 
     public async Task OnGetStatusEventsAsync()

@@ -14,29 +14,7 @@ var connectionString = new SqliteConnectionStringBuilder { DataSource = database
 builder.Services.AddSingleton(new DocumentStore(connectionString));
 
 var app = builder.Build();
-await using (var connection = new SqliteConnection(connectionString))
-{
-    await connection.OpenAsync();
-    await using var command = connection.CreateCommand();
-    command.CommandText = """
-        CREATE TABLE IF NOT EXISTS Documents (
-            Id INTEGER PRIMARY KEY AUTOINCREMENT,
-            FileName TEXT NOT NULL,
-            DocumentType TEXT NOT NULL,
-            ContentType TEXT NOT NULL,
-            Data BLOB NOT NULL,
-            UploadedAt TEXT NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS ScannedDocuments (
-            Id INTEGER PRIMARY KEY AUTOINCREMENT,
-            DocumentId INTEGER NOT NULL UNIQUE,
-            Status TEXT NOT NULL CHECK (Status IN ('InProgress', 'Approved', 'Rejected')),
-            UpdatedAt TEXT NOT NULL,
-            FOREIGN KEY (DocumentId) REFERENCES Documents(Id) ON DELETE CASCADE
-        );
-        """;
-    await command.ExecuteNonQueryAsync();
-}
+await DatabaseInitializer.InitializeAsync(connectionString);
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

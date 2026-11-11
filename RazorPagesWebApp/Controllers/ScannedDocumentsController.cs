@@ -13,8 +13,8 @@ public sealed class ScannedDocumentsController(DocumentStore documentStore, Scan
         "Rejected"
     };
 
-    [HttpPost("{documentId:long}/status")]
-    public async Task<IActionResult> UpdateStatus(long documentId, [FromBody] UpdateScanStatusRequest request)
+    [HttpPost("{thirdPartyDocumentId:long}/status")]
+    public async Task<IActionResult> UpdateStatus(long thirdPartyDocumentId, [FromBody] UpdateScanStatusRequest request)
     {
         if (!AllowedStatuses.Contains(request.Status))
         {
@@ -25,13 +25,13 @@ public sealed class ScannedDocumentsController(DocumentStore documentStore, Scan
             });
         }
 
-        var updated = await documentStore.UpdateScanStatusAsync(documentId, request.Status);
+        var updated = await documentStore.UpdateScanStatusAsync(thirdPartyDocumentId, request.Status);
         
         if (!updated)
             return NotFound(new { error = "Nie znaleziono dokumentu lub jego rekordu skanowania." });
 
-        statusEvents.Publish(new ScanStatusChanged(documentId, request.Status));
-        return Ok(new { documentId, status = request.Status });
+        statusEvents.Publish(new ScanStatusChanged(thirdPartyDocumentId, request.Status));
+        return Ok(new { thirdPartyDocumentId, status = request.Status });
     }
 }
 

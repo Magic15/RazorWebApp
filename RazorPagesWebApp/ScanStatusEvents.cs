@@ -3,7 +3,7 @@ using System.Threading.Channels;
 
 namespace RazorPagesWebApp;
 
-public sealed record ScanStatusChanged(long DocumentId, string Status);
+public sealed record ScanStatusChanged(long ThirdPartyDocumentId, string Status);
 
 public sealed class ScanStatusEvents
 {

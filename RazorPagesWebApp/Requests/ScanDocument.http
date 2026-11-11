@@ -1,8 +1,8 @@
 @baseUrl = http://localhost:5238
-@documentId = 3
+@thirdPartyDocumentId = 1
 
 ### Ustaw skanowanie jako zakończone i zaakceptowane
-POST {{baseUrl}}/api/scanned-documents/{{documentId}}/status
+POST {{baseUrl}}/api/scanned-documents/{{thirdPartyDocumentId}}/status
 Content-Type: application/json
 
 {
@@ -10,7 +10,7 @@ Content-Type: application/json
 }
 
 ### Odrzuć dokument
-POST {{baseUrl}}/api/scanned-documents/{{documentId}}/status
+POST {{baseUrl}}/api/scanned-documents/{{thirdPartyDocumentId}}/status
 Content-Type: application/json
 
 {
@@ -18,7 +18,7 @@ Content-Type: application/json
 }
 
 ### Zasymuluj ponowne rozpoczęcie skanowania
-POST {{baseUrl}}/api/scanned-documents/{{documentId}}/status
+POST {{baseUrl}}/api/scanned-documents/{{thirdPartyDocumentId}}/status
 Content-Type: application/json
 
 {
