@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using Dapper;
 
 namespace RazorPagesWebApp;
 
@@ -9,8 +10,7 @@ public static class DatabaseInitializer
         await using var connection = new SqliteConnection(connectionString);
         await connection.OpenAsync();
 
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+        const string sql = """
             CREATE TABLE IF NOT EXISTS ScannedDocuments (
                 Id INTEGER PRIMARY KEY AUTOINCREMENT,
                 FileName TEXT NOT NULL,
@@ -28,6 +28,6 @@ public static class DatabaseInitializer
                 FOREIGN KEY (ThirdPartyDocumentId) REFERENCES ScannedDocuments(Id)
             );
             """;
-        await command.ExecuteNonQueryAsync();
+        await connection.ExecuteAsync(sql);
     }
 }

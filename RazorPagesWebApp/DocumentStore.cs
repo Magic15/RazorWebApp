@@ -1,3 +1,4 @@
+using Dapper;
 using Microsoft.Data.Sqlite;
 
 namespace RazorPagesWebApp;
@@ -6,87 +7,69 @@ public sealed class DocumentStore(string connectionString)
 {
     public async Task<IReadOnlyList<DocumentSummary>> ListAsync()
     {
-        var documents = new List<DocumentSummary>();
-        await using var connection = new SqliteConnection(connectionString);
-        await connection.OpenAsync();
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+        const string sql = """
             SELECT d.Id, d.ThirdPartyDocumentId, d.FileName, d.DocumentType, d.UploadedAt, s.Status
             FROM Documents d JOIN ScannedDocuments s ON s.Id = d.ThirdPartyDocumentId
             ORDER BY d.Id DESC
             """;
-        await using var reader = await command.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
-        {
-            documents.Add(new DocumentSummary(reader.GetInt64(0), reader.GetInt64(1), reader.GetString(2),
-                reader.GetString(3), DateTimeOffset.Parse(reader.GetString(4)), reader.GetString(5)));
-        }
-        return documents;
+
+        await using var connection = new SqliteConnection(connectionString);
+        var rows = await connection.QueryAsync<DocumentListRow>(sql);
+        return rows.Select(row => new DocumentSummary(row.Id, row.ThirdPartyDocumentId, row.FileName,
+            row.DocumentType, DateTimeOffset.Parse(row.UploadedAt), row.Status)).ToList();
     }
 
     public async Task SaveAsync(string fileName, string documentType, string contentType, byte[] data)
     {
+        const string insertScannedDocument = """
+            INSERT INTO ScannedDocuments (FileName, ContentType, Data, Status, UpdatedAt)
+            VALUES (@FileName, @ContentType, @Data, 'InProgress', @UploadedAt);
+            SELECT last_insert_rowid();
+            """;
+        const string insertDocument = """
+            INSERT INTO Documents (FileName, DocumentType, ThirdPartyDocumentId, UploadedAt)
+            VALUES (@FileName, @DocumentType, @ThirdPartyDocumentId, @UploadedAt);
+            """;
+
         await using var connection = new SqliteConnection(connectionString);
         await connection.OpenAsync();
         await using var transaction = await connection.BeginTransactionAsync();
-        try
-        {
-            var uploadedAt = DateTimeOffset.UtcNow.ToString("O");
-            await using var scanCommand = connection.CreateCommand();
-            scanCommand.Transaction = (SqliteTransaction)transaction;
-            scanCommand.CommandText = "INSERT INTO ScannedDocuments (FileName, ContentType, Data, Status, UpdatedAt) VALUES ($name, $contentType, $data, 'InProgress', $uploadedAt); SELECT last_insert_rowid();";
-            scanCommand.Parameters.AddWithValue("$name", fileName);
-            scanCommand.Parameters.AddWithValue("$contentType", contentType);
-            scanCommand.Parameters.AddWithValue("$data", data);
-            scanCommand.Parameters.AddWithValue("$uploadedAt", uploadedAt);
-            var externalId = (long)(await scanCommand.ExecuteScalarAsync())!;
+        var uploadedAt = DateTimeOffset.UtcNow.ToString("O");
+        var parameters = new { FileName = fileName, ContentType = contentType, Data = data, DocumentType = documentType, UploadedAt = uploadedAt };
 
-            await using var documentCommand = connection.CreateCommand();
-            documentCommand.Transaction = (SqliteTransaction)transaction;
-            documentCommand.CommandText = "INSERT INTO Documents (FileName, DocumentType, ThirdPartyDocumentId, UploadedAt) VALUES ($name, $type, $externalId, $uploadedAt)";
-            documentCommand.Parameters.AddWithValue("$name", fileName);
-            documentCommand.Parameters.AddWithValue("$type", documentType);
-            documentCommand.Parameters.AddWithValue("$externalId", externalId);
-            documentCommand.Parameters.AddWithValue("$uploadedAt", uploadedAt);
-            await documentCommand.ExecuteNonQueryAsync();
-
-            await transaction.CommitAsync();
-        }
-        catch
-        {
-            await transaction.RollbackAsync();
-            throw;
-        }
+        var externalId = await connection.ExecuteScalarAsync<long>(insertScannedDocument, parameters, transaction);
+        await connection.ExecuteAsync(insertDocument,
+            new { parameters.FileName, parameters.DocumentType, ThirdPartyDocumentId = externalId, parameters.UploadedAt },
+            transaction);
+        await transaction.CommitAsync();
     }
 
     public async Task<bool> UpdateScanStatusAsync(long thirdPartyDocumentId, string status)
     {
+        const string sql = "UPDATE ScannedDocuments SET Status = @Status, UpdatedAt = @UpdatedAt WHERE Id = @Id";
         await using var connection = new SqliteConnection(connectionString);
-        await connection.OpenAsync();
-        await using var command = connection.CreateCommand();
-        command.CommandText = "UPDATE ScannedDocuments SET Status = $status, UpdatedAt = $updatedAt WHERE Id = $id";
-        command.Parameters.AddWithValue("$status", status);
-        command.Parameters.AddWithValue("$updatedAt", DateTimeOffset.UtcNow.ToString("O"));
-        command.Parameters.AddWithValue("$id", thirdPartyDocumentId);
-        return await command.ExecuteNonQueryAsync() > 0;
+        var rowsUpdated = await connection.ExecuteAsync(sql, new
+        {
+            Status = status,
+            UpdatedAt = DateTimeOffset.UtcNow.ToString("O"),
+            Id = thirdPartyDocumentId
+        });
+        return rowsUpdated > 0;
     }
 
     public async Task<DocumentDownloadResult?> GetDownloadAsync(long documentId)
     {
-        await using var connection = new SqliteConnection(connectionString);
-        await connection.OpenAsync();
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
+        const string sql = """
             SELECT s.FileName, s.ContentType, s.Data, s.Status
             FROM Documents d JOIN ScannedDocuments s ON s.Id = d.ThirdPartyDocumentId
-            WHERE d.Id = $id
+            WHERE d.Id = @Id
             """;
-        command.Parameters.AddWithValue("$id", documentId);
-        await using var reader = await command.ExecuteReaderAsync();
-        return await reader.ReadAsync()
-            ? new DocumentDownloadResult(new StoredDocument(reader.GetString(0), reader.GetString(1), (byte[])reader[2]),
-                reader.GetString(3))
-            : null;
+
+        await using var connection = new SqliteConnection(connectionString);
+        var row = await connection.QuerySingleOrDefaultAsync<DocumentDownloadRow>(sql, new { Id = documentId });
+        return row is null
+            ? null
+            : new DocumentDownloadResult(new StoredDocument(row.FileName, row.ContentType, row.Data), row.Status);
     }
 }
 
@@ -94,3 +77,6 @@ public sealed record DocumentSummary(long Id, long ThirdPartyDocumentId, string 
     DateTimeOffset UploadedAt, string ScanStatus);
 public sealed record StoredDocument(string FileName, string ContentType, byte[] Data);
 public sealed record DocumentDownloadResult(StoredDocument Document, string Status);
+internal sealed record DocumentListRow(long Id, long ThirdPartyDocumentId, string FileName, string DocumentType,
+    string UploadedAt, string Status);
+internal sealed record DocumentDownloadRow(string FileName, string ContentType, byte[] Data, string Status);
