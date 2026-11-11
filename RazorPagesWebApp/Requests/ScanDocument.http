@@ -1,0 +1,26 @@
+@baseUrl = http://localhost:5238
+@documentId = 2
+
+### Ustaw skanowanie jako zakończone i zaakceptowane
+POST {{baseUrl}}/api/scanned-documents/{{documentId}}/status
+Content-Type: application/json
+
+{
+  "status": "Approved"
+}
+
+### Odrzuć dokument
+POST {{baseUrl}}/api/scanned-documents/{{documentId}}/status
+Content-Type: application/json
+
+{
+  "status": "Rejected"
+}
+
+### Zasymuluj ponowne rozpoczęcie skanowania
+POST {{baseUrl}}/api/scanned-documents/{{documentId}}/status
+Content-Type: application/json
+
+{
+  "status": "InProgress"
+}

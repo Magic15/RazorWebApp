@@ -1,0 +1,83 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Dokumenty";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h2 mb-1">Dokumenty</h1>
+        <p class="text-muted mb-0">Pliki są przechowywane w lokalnej bazie SQLite.</p>
+    </div>
+    <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#uploadModal">
+        Dodaj dokument
+    </button>
+</div>
+
+@if (TempData["SuccessMessage"] is string message)
+{
+    <div class="alert alert-success" role="status">@message</div>
+}
+
+@if (Model.Documents.Count == 0)
+{
+    <div class="card"><div class="card-body text-muted">Brak dokumentów. Dodaj pierwszy plik.</div></div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped align-middle">
+            <thead><tr><th>Plik</th><th>Typ dokumentu</th><th>Status skanowania</th><th>Data dodania</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var document in Model.Documents)
+            {
+                <tr>
+                    <td>@document.FileName</td>
+                    <td>@document.DocumentType</td>
+                    <td>@document.ScanStatus</td>
+                    <td>@document.UploadedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                    <td class="text-end"><a class="btn btn-sm btn-outline-secondary" asp-page-handler="Download" asp-route-id="@document.Id">Pobierz</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+<div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalTitle" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" enctype="multipart/form-data" asp-page-handler="Upload">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5" id="uploadModalTitle">Dodaj dokument</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+                </div>
+                <div class="modal-body">
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                    <div class="mb-3">
+                        <label asp-for="DocumentType" class="form-label">Typ dokumentu</label>
+                        <input asp-for="DocumentType" class="form-control" maxlength="100" placeholder="np. Umowa, faktura" />
+                        <span asp-validation-for="DocumentType" class="text-danger"></span>
+                    </div>
+                    <div>
+                        <label asp-for="Upload" class="form-label">Plik</label>
+                        <input asp-for="Upload" class="form-control" type="file" />
+                        <div class="form-text">Maksymalny rozmiar pliku: 10 MB.</div>
+                        <span asp-validation-for="Upload" class="text-danger"></span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Anuluj</button>
+                    <button type="submit" class="btn btn-primary">Zapisz dokument</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@if (!ViewData.ModelState.IsValid)
+{
+    <script>
+        document.addEventListener('DOMContentLoaded', () => bootstrap.Modal.getOrCreateInstance(document.getElementById('uploadModal')).show());
+    </script>
+}
