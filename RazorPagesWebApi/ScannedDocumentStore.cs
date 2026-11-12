@@ -1,7 +1,7 @@
 using Dapper;
 using Microsoft.Data.Sqlite;
 
-namespace RazorPagesWebApp;
+namespace RazorPagesWebApi;
 
 /// <summary>Local stand-in for the third-party antivirus document API and storage.</summary>
 public sealed class ScannedDocumentStore(string connectionString)

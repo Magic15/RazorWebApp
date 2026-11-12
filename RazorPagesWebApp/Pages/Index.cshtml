@@ -7,7 +7,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h1 class="h2 mb-1">Dokumenty</h1>
-        <p class="text-muted mb-0">Pliki są przechowywane w lokalnej bazie SQLite.</p>
+        <p class="text-muted mb-0">Dokumenty są obsługiwane przez niezależne API backendowe.</p>
     </div>
     <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#uploadModal">
         Dodaj dokument
@@ -19,7 +19,12 @@
     <div class="alert alert-success" role="status">@message</div>
 }
 
-@if (Model.Documents.Count == 0)
+@if (Model.BackendError is not null)
+{
+    <div class="alert alert-danger" role="alert">@Model.BackendError</div>
+}
+
+@if (Model.Documents.Count == 0 && Model.BackendError is null)
 {
     <div class="card"><div class="card-body text-muted">Brak dokumentów. Dodaj pierwszy plik.</div></div>
 }
@@ -39,7 +44,7 @@ else
                     <td class="text-end">
                         @if (document.ScanStatus == "Approved")
                         {
-                            <a class="btn btn-sm btn-outline-secondary" asp-page-handler="Download" asp-route-id="@document.Id">Pobierz</a>
+                            <a class="btn btn-sm btn-outline-secondary" href="@($"{Model.BackendApiBaseUrl}/api/documents/{document.Id}/file")">Pobierz</a>
                         }
                         else
                         {
@@ -82,8 +87,12 @@ else
     </div>
 </div>
 
+<div id="backendConfig" data-api-base-url="@Model.BackendApiBaseUrl"></div>
+
 <script>
     document.addEventListener('DOMContentLoaded', () => {
+        const backendApiBaseUrl = document.getElementById('backendConfig').dataset.apiBaseUrl;
+
         function getApiError(payload, fallback) {
             if (payload.error) return payload.error;
             if (payload.errors) return Object.values(payload.errors).flat().join(' ');
@@ -104,7 +113,7 @@ else
             try {
                 const uploadFormData = new FormData();
                 uploadFormData.append('file', file);
-                const uploadResponse = await fetch('/api/scanned-documents', {
+                const uploadResponse = await fetch(backendApiBaseUrl + '/api/scanned-documents', {
                     method: 'POST',
                     body: uploadFormData
                 });
@@ -112,7 +121,7 @@ else
                 if (!uploadResponse.ok)
                     throw new Error(getApiError(uploadResult, 'Nie udało się wysłać pliku do skanera.'));
 
-                const documentResponse = await fetch('/api/documents', {
+                const documentResponse = await fetch(backendApiBaseUrl + '/api/documents', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -136,7 +145,7 @@ else
 
         if (!window.EventSource) return;
 
-        const events = new EventSource('?handler=StatusEvents');
+        const events = new EventSource(backendApiBaseUrl + '/api/scanned-documents/status-events');
         events.addEventListener('scan-status', event => {
             const update = JSON.parse(event.data);
             const row = document.querySelector(`[data-third-party-document-id="${update.thirdPartyDocumentId}"]`);
@@ -146,7 +155,7 @@ else
                 if (update.status === 'Approved') {
                     const link = document.createElement('a');
                     link.className = 'btn btn-sm btn-outline-secondary';
-                    link.href = `/?handler=Download&id=${encodeURIComponent(row.dataset.localDocumentId)}`;
+                    link.href = backendApiBaseUrl + '/api/documents/' + encodeURIComponent(row.dataset.localDocumentId) + '/file';
                     link.textContent = 'Pobierz';
                     actionCell.replaceChildren(link);
                 } else {

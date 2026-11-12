@@ -1,13 +1,22 @@
 using Microsoft.AspNetCore.Mvc;
 using FluentValidation;
-using RazorPagesWebApp.Validation;
+using RazorPagesWebApi.Validation;
 
-namespace RazorPagesWebApp.Controllers;
+namespace RazorPagesWebApi.Controllers;
 
 [ApiController]
 [Route("api/documents")]
-public sealed class DocumentsController(DocumentStore documentStore, IValidator<CreateDocumentRequest> validator) : ControllerBase
+public sealed class DocumentsController(
+    DocumentStore documentStore,
+    ScannedDocumentStore scannedDocumentStore,
+    IValidator<CreateDocumentRequest> validator) : ControllerBase
 {
+    [HttpGet]
+    public async Task<IActionResult> List()
+    {
+        return Ok(await documentStore.ListAsync());
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateDocumentRequest request)
     {
@@ -33,6 +42,22 @@ public sealed class DocumentsController(DocumentStore documentStore, IValidator<
     {
         var document = await documentStore.GetAsync(id);
         return document is null ? NotFound() : Ok(document);
+    }
+
+    [HttpGet("{id:long}/file")]
+    public async Task<IActionResult> Download(long id)
+    {
+        var thirdPartyDocumentId = await documentStore.GetThirdPartyDocumentIdAsync(id);
+        if (thirdPartyDocumentId is null)
+            return NotFound();
+
+        var scannedFile = await scannedDocumentStore.GetAsync(thirdPartyDocumentId.Value);
+        if (scannedFile is null)
+            return NotFound();
+        if (scannedFile.Status != "Approved")
+            return Conflict(new { error = "Dokument można pobrać dopiero po zatwierdzeniu.", status = scannedFile.Status });
+
+        return File(scannedFile.Document.Data, scannedFile.Document.ContentType, scannedFile.Document.FileName);
     }
 }
 

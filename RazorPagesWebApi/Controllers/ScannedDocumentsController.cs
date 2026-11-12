@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using FluentValidation;
-using RazorPagesWebApp.Validation;
+using RazorPagesWebApi.Validation;
 
-namespace RazorPagesWebApp.Controllers;
+namespace RazorPagesWebApi.Controllers;
 
 [ApiController]
 [Route("api/scanned-documents")]

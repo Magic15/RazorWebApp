@@ -1,7 +1,7 @@
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Mvc;
 
-namespace RazorPagesWebApp.Validation;
+namespace RazorPagesWebApi.Validation;
 
 public static class ApiValidationExtensions
 {

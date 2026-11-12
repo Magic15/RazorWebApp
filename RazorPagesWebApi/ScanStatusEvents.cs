@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Threading.Channels;
 
-namespace RazorPagesWebApp;
+namespace RazorPagesWebApi;
 
 public sealed record ScanStatusChanged(long ThirdPartyDocumentId, string Status);
 

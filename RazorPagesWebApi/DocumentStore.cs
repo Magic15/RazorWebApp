@@ -1,7 +1,7 @@
 using Dapper;
 using Microsoft.Data.Sqlite;
 
-namespace RazorPagesWebApp;
+namespace RazorPagesWebApi;
 
 public sealed class DocumentStore(string connectionString)
 {

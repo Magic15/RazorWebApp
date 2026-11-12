@@ -1,4 +1,4 @@
-@baseUrl = http://localhost:5238
+@baseUrl = http://localhost:5280
 @thirdPartyDocumentId = 1
 @fileName = dokument.pdf
 @documentType = Umowa

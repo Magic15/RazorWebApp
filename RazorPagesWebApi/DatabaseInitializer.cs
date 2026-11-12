@@ -1,7 +1,7 @@
 using Microsoft.Data.Sqlite;
 using Dapper;
 
-namespace RazorPagesWebApp;
+namespace RazorPagesWebApi;
 
 public static class DatabaseInitializer
 {

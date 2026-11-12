@@ -1,7 +1,7 @@
 using FluentValidation;
-using RazorPagesWebApp.Controllers;
+using RazorPagesWebApi.Controllers;
 
-namespace RazorPagesWebApp.Validation;
+namespace RazorPagesWebApi.Validation;
 
 public sealed class UploadScannedDocumentRequestValidator : AbstractValidator<UploadScannedDocumentRequest>
 {
