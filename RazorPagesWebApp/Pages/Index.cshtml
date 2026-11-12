@@ -56,28 +56,26 @@ else
 <div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalTitle" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form method="post" enctype="multipart/form-data" asp-page-handler="Upload">
+            <form id="uploadDocumentForm" enctype="multipart/form-data">
                 <div class="modal-header">
                     <h2 class="modal-title fs-5" id="uploadModalTitle">Dodaj dokument</h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
                 </div>
                 <div class="modal-body">
-                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                    <div id="uploadError" class="alert alert-danger d-none" role="alert"></div>
                     <div class="mb-3">
-                        <label asp-for="DocumentType" class="form-label">Typ dokumentu</label>
-                        <input asp-for="DocumentType" class="form-control" maxlength="100" placeholder="np. Umowa, faktura" />
-                        <span asp-validation-for="DocumentType" class="text-danger"></span>
+                        <label for="DocumentType" class="form-label">Typ dokumentu</label>
+                        <input id="DocumentType" name="documentType" class="form-control" maxlength="100" required placeholder="np. Umowa, faktura" />
                     </div>
                     <div>
-                        <label asp-for="Upload" class="form-label">Plik</label>
-                        <input asp-for="Upload" class="form-control" type="file" />
+                        <label for="Upload" class="form-label">Plik</label>
+                        <input id="Upload" name="file" class="form-control" type="file" required />
                         <div class="form-text">Maksymalny rozmiar pliku: 10 MB.</div>
-                        <span asp-validation-for="Upload" class="text-danger"></span>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Anuluj</button>
-                    <button type="submit" class="btn btn-primary">Zapisz dokument</button>
+                    <button id="uploadSubmitButton" type="submit" class="btn btn-primary">Wyślij do skanera</button>
                 </div>
             </form>
         </div>
@@ -86,6 +84,56 @@ else
 
 <script>
     document.addEventListener('DOMContentLoaded', () => {
+        function getApiError(payload, fallback) {
+            if (payload.error) return payload.error;
+            if (payload.errors) return Object.values(payload.errors).flat().join(' ');
+            return fallback;
+        }
+
+        const uploadForm = document.getElementById('uploadDocumentForm');
+        uploadForm.addEventListener('submit', async event => {
+            event.preventDefault();
+            const errorBox = document.getElementById('uploadError');
+            const submitButton = document.getElementById('uploadSubmitButton');
+            const file = document.getElementById('Upload').files[0];
+            const documentType = document.getElementById('DocumentType').value.trim();
+            errorBox.classList.add('d-none');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Wysyłanie...';
+
+            try {
+                const uploadFormData = new FormData();
+                uploadFormData.append('file', file);
+                const uploadResponse = await fetch('/api/scanned-documents', {
+                    method: 'POST',
+                    body: uploadFormData
+                });
+                const uploadResult = await uploadResponse.json();
+                if (!uploadResponse.ok)
+                    throw new Error(getApiError(uploadResult, 'Nie udało się wysłać pliku do skanera.'));
+
+                const documentResponse = await fetch('/api/documents', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fileName: uploadResult.fileName,
+                        documentType,
+                        thirdPartyDocumentId: uploadResult.thirdPartyDocumentId
+                    })
+                });
+                const documentResult = await documentResponse.json();
+                if (!documentResponse.ok)
+                    throw new Error(getApiError(documentResult, 'Plik wysłano do skanera, ale nie udało się zapisać metadanych.'));
+
+                window.location.reload();
+            } catch (error) {
+                errorBox.textContent = error.message;
+                errorBox.classList.remove('d-none');
+                submitButton.disabled = false;
+                submitButton.textContent = 'Wyślij do skanera';
+            }
+        });
+
         if (!window.EventSource) return;
 
         const events = new EventSource('?handler=StatusEvents');

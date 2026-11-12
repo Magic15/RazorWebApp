@@ -7,7 +7,6 @@ namespace RazorPagesWebApp.Pages;
 
 public class IndexModel : PageModel
 {
-    private const long MaxFileSize = 10 * 1024 * 1024;
     private readonly DocumentStore _documentStore;
     private readonly ScanStatusEvents _statusEvents;
 
@@ -19,50 +18,17 @@ public class IndexModel : PageModel
 
     public IReadOnlyList<DocumentSummary> Documents { get; private set; } = [];
 
-    [BindProperty]
-    public string DocumentType { get; set; } = string.Empty;
-
-    [BindProperty]
-    public IFormFile? Upload { get; set; }
-
     public async Task OnGetAsync()
     {
         Documents = await _documentStore.ListAsync();
     }
 
-    public async Task<IActionResult> OnPostUploadAsync()
-    {
-        if (string.IsNullOrWhiteSpace(DocumentType) || DocumentType.Length > 100)
-            ModelState.AddModelError(nameof(DocumentType), "Wybierz typ dokumentu (maksymalnie 100 znaków).");
-        if (Upload is null || Upload.Length == 0)
-            ModelState.AddModelError(nameof(Upload), "Wybierz plik do zapisania.");
-        else if (Upload.Length > MaxFileSize)
-            ModelState.AddModelError(nameof(Upload), "Maksymalny rozmiar pliku to 10 MB.");
-
-        if (!ModelState.IsValid)
-        {
-            Documents = await _documentStore.ListAsync();
-            return Page();
-        }
-
-        await using var stream = new MemoryStream();
-        await Upload!.CopyToAsync(stream);
-        await _documentStore.SaveAsync(Path.GetFileName(Upload.FileName), DocumentType.Trim(),
-            string.IsNullOrWhiteSpace(Upload.ContentType) ? "application/octet-stream" : Upload.ContentType,
-            stream.ToArray());
-        TempData["SuccessMessage"] = "Dokument został zapisany.";
-        return RedirectToPage();
-    }
-
     public async Task<IActionResult> OnGetDownloadAsync(long id)
     {
-        var download = await _documentStore.GetDownloadAsync(id);
-        if (download is null)
+        var thirdPartyDocumentId = await _documentStore.GetThirdPartyDocumentIdAsync(id);
+        if (thirdPartyDocumentId is null)
             return NotFound();
-        if (download.Status != "Approved")
-            return Forbid();
-
-        return File(download.Document.Data, download.Document.ContentType, download.Document.FileName);
+        return Redirect($"/api/scanned-documents/{thirdPartyDocumentId.Value}/file");
     }
 
     public async Task OnGetStatusEventsAsync()

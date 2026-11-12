@@ -1,8 +1,31 @@
 @baseUrl = http://localhost:5238
 @thirdPartyDocumentId = 1
+@fileName = dokument.pdf
+@documentType = Umowa
+
+### Wyślij dokument do symulowanego antywirusa; odpowiedź zawiera nowe thirdPartyDocumentId
+POST {{baseUrl}}/api/scanned-documents
+Content-Type: multipart/form-data; boundary=RiderBoundary
+
+--RiderBoundary
+Content-Disposition: form-data; name="file"; filename="{{fileName}}"
+Content-Type: application/pdf
+
+< ./{{fileName}}
+--RiderBoundary--
+
+### Zapisz metadane dokumentu lokalnie, używając ID zwróconego przez upload
+POST {{baseUrl}}/api/documents
+Content-Type: application/json
+
+{
+  "fileName": "{{fileName}}",
+  "documentType": "{{documentType}}",
+  "thirdPartyDocumentId": {{thirdPartyDocumentId}}
+}
 
 ### Ustaw skanowanie jako zakończone i zaakceptowane
-POST {{baseUrl}}/api/scanned-documents/{{thirdPartyDocumentId}}/status
+PUT {{baseUrl}}/api/scanned-documents/{{thirdPartyDocumentId}}/status
 Content-Type: application/json
 
 {
@@ -10,7 +33,7 @@ Content-Type: application/json
 }
 
 ### Odrzuć dokument
-POST {{baseUrl}}/api/scanned-documents/{{thirdPartyDocumentId}}/status
+PUT {{baseUrl}}/api/scanned-documents/{{thirdPartyDocumentId}}/status
 Content-Type: application/json
 
 {
@@ -18,9 +41,12 @@ Content-Type: application/json
 }
 
 ### Zasymuluj ponowne rozpoczęcie skanowania
-POST {{baseUrl}}/api/scanned-documents/{{thirdPartyDocumentId}}/status
+PUT {{baseUrl}}/api/scanned-documents/{{thirdPartyDocumentId}}/status
 Content-Type: application/json
 
 {
   "status": "InProgress"
 }
+
+### Pobierz dokument, możliwe wyłącznie po zatwierdzeniu
+GET {{baseUrl}}/api/scanned-documents/{{thirdPartyDocumentId}}/file
