@@ -41,7 +41,8 @@ else
                     <td>@document.DocumentType</td>
                     <td class="scan-status">@document.ScanStatus</td>
                     <td>@document.UploadedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
-                    <td class="text-end">
+                    <td class="text-end scan-status-action"
+                        data-download-url="@($"{Model.BackendApiBaseUrl}/api/documents/{document.Id}/file")">
                         @if (document.ScanStatus == "Approved")
                         {
                             <a class="btn btn-sm btn-outline-secondary" href="@($"{Model.BackendApiBaseUrl}/api/documents/{document.Id}/file")">Pobierz</a>
@@ -87,11 +88,11 @@ else
     </div>
 </div>
 
-<div id="backendConfig" data-api-base-url="@Model.BackendApiBaseUrl"></div>
+@await Component.InvokeAsync("ScanStatusEvents")
 
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        const backendApiBaseUrl = document.getElementById('backendConfig').dataset.apiBaseUrl;
+        const backendApiBaseUrl = document.querySelector('[data-scan-status-events]').dataset.apiBaseUrl;
 
         function getApiError(payload, fallback) {
             if (payload.error) return payload.error;
@@ -143,35 +144,5 @@ else
             }
         });
 
-        if (!window.EventSource) return;
-
-        const events = new EventSource(backendApiBaseUrl + '/api/scanned-documents/status-events');
-        events.addEventListener('scan-status', event => {
-            const update = JSON.parse(event.data);
-            const row = document.querySelector(`[data-third-party-document-id="${update.thirdPartyDocumentId}"]`);
-            if (row) {
-                row.querySelector('.scan-status').textContent = update.status;
-                const actionCell = row.lastElementChild;
-                if (update.status === 'Approved') {
-                    const link = document.createElement('a');
-                    link.className = 'btn btn-sm btn-outline-secondary';
-                    link.href = backendApiBaseUrl + '/api/documents/' + encodeURIComponent(row.dataset.localDocumentId) + '/file';
-                    link.textContent = 'Pobierz';
-                    actionCell.replaceChildren(link);
-                } else {
-                    const hint = document.createElement('span');
-                    hint.className = 'text-muted';
-                    hint.textContent = 'Dostępny po akceptacji';
-                    actionCell.replaceChildren(hint);
-                }
-            }
-        });
     });
 </script>
-
-@if (!ViewData.ModelState.IsValid)
-{
-    <script>
-        document.addEventListener('DOMContentLoaded', () => bootstrap.Modal.getOrCreateInstance(document.getElementById('uploadModal')).show());
-    </script>
-}

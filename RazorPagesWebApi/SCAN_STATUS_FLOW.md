@@ -103,6 +103,8 @@ sequenceDiagram
 
 Formularz GUI wysyła plik i metadane bezpośrednio do REST API przez `fetch`. Adres backendu jest konfigurowalny; dla CORS trzeba dodać origin GUI do `Cors:AllowedOrigins` po stronie backendu.
 
+GUI uruchamia SSE przez współdzielony `ScanStatusEventsViewComponent` w `RazorPagesWebApp`. Dowolna strona Razor może dodać `@await Component.InvokeAsync("ScanStatusEvents")`; wspólny `scan-status-events.js` otworzy jedno połączenie na adres API i wyemituje zdarzenie DOM `scan-status-changed`. Tabela może opcjonalnie oznaczyć wiersz `data-third-party-document-id`, komórkę `.scan-status` i komórkę akcji `.scan-status-action`, aby skrypt aktualizował status i przycisk pobierania.
+
 Requesty API są walidowane przez osobne klasy FluentValidation w katalogu `Validation`. Błędy zwracane są jako `ValidationProblemDetails`. Plik `Requests/ScanDocument.http` zawiera przykładowe requesty do Ridera.
 
 ## Ograniczenia symulacji
