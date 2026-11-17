@@ -46,7 +46,7 @@ sequenceDiagram
     participant Documents as DocumentStore
     participant Scanner as ScannedDocumentStore
     participant DB as SQLite
-    participant Events as ScanStatusEvents
+    participant Hub as ScanStatusHub
 
     User->>Browser: Otwiera GUI
     Browser->>Frontend: GET /
@@ -67,15 +67,14 @@ sequenceDiagram
     Documents->>DB: INSERT metadanych
     API-->>Browser: HTTP 201
 
-    Browser->>API: GET /api/scanned-documents/status-events
-    API->>Events: Subscribe()
-    API-->>Browser: Otwarty strumień SSE
+    Browser->>API: SignalR negotiate + WebSocket /hubs/scan-status
+    API-->>Browser: Połączenie SignalR
 
     User->>API: PUT /api/scanned-documents/{externalId}/status
     API->>Scanner: UpdateStatusAsync(externalId, status)
     Scanner->>DB: UPDATE statusu
-    API->>Events: Publish(externalId, status)
-    Events-->>Browser: SSE scan-status
+    API->>Hub: Clients.All.SendAsync(scanStatusChanged, ...)
+    Hub-->>Browser: SignalR scanStatusChanged
     Browser->>Browser: Aktualizuje status w tabeli
 
     User->>Browser: Pobiera zatwierdzony dokument
@@ -99,16 +98,18 @@ sequenceDiagram
 - `POST /api/documents` — zapis metadanych GUI wraz z zewnętrznym ID.
 - `GET /api/documents/{id}` — szczegóły lokalnego dokumentu.
 - `GET /api/documents/{id}/file` — pobranie przez lokalne ID; backend sprawdza status u skanera.
-- `GET /api/scanned-documents/status-events` — strumień Server-Sent Events dla GUI.
+- `/hubs/scan-status` — SignalR Hub, który wysyła zdarzenie `scanStatusChanged` do podłączonych klientów po zmianie statusu.
 
 Formularz GUI wysyła plik i metadane bezpośrednio do REST API przez `fetch`. Adres backendu jest konfigurowalny; dla CORS trzeba dodać origin GUI do `Cors:AllowedOrigins` po stronie backendu.
 
-GUI uruchamia SSE przez współdzielony `ScanStatusEventsViewComponent` w `RazorPagesWebApp`. Dowolna strona Razor może dodać `@await Component.InvokeAsync("ScanStatusEvents")`; wspólny `scan-status-events.js` otworzy jedno połączenie na adres API i wyemituje zdarzenie DOM `scan-status-changed`. Tabela może opcjonalnie oznaczyć wiersz `data-third-party-document-id`, komórkę `.scan-status` i komórkę akcji `.scan-status-action`, aby skrypt aktualizował status i przycisk pobierania.
+GUI łączy się z SignalR przez współdzielony `ScanStatusEventsViewComponent` w `RazorPagesWebApp`. Dowolna strona Razor może dodać `@await Component.InvokeAsync("ScanStatusEvents")`; wspólny `scan-status-events.js` otworzy połączenie WebSocket z hubem i wyemituje zdarzenie DOM `scan-status-changed`. Tabela może opcjonalnie oznaczyć wiersz `data-third-party-document-id`, komórkę `.scan-status` i komórkę akcji `.scan-status-action`, aby skrypt aktualizował status i przycisk pobierania.
+
+Klient SignalR jest skonfigurowany wyłącznie do WebSocketów, aby nie przechodził na transport SSE, który może być buforowany przez IIS. Na IIS należy włączyć funkcję **WebSocket Protocol**. CORS dla huba musi zezwalać na dokładne originy GUI i obsługiwać credentials. Przy wielu instancjach API trzeba skonfigurować SignalR backplane (np. Redis) i odpowiednią konfigurację load balancera; domyślny hub przechowuje połączenia w pamięci pojedynczej instancji.
 
 Requesty API są walidowane przez osobne klasy FluentValidation w katalogu `Validation`. Błędy zwracane są jako `ValidationProblemDetails`. Plik `Requests/ScanDocument.http` zawiera przykładowe requesty do Ridera.
 
 ## Ograniczenia symulacji
 
 - Backend przechowuje skaner w tej samej bazie SQLite wyłącznie na potrzeby symulacji. Prawdziwa integracja zastąpiłaby `ScannedDocumentStore` klientem HTTP zewnętrznego skanera.
-- Zdarzenia SSE są w pamięci pojedynczej instancji; wiele instancji wymaga współdzielonego brokera.
+- Połączenia SignalR są zarządzane w pamięci pojedynczej instancji; wiele instancji wymaga backplane, np. Redis.
 - Endpoint zmiany statusu nie ma uwierzytelniania ani podpisu callbacku.

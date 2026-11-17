@@ -1,16 +1,25 @@
 document.addEventListener('DOMContentLoaded', () => {
-    if (!window.EventSource) return;
+    if (!window.signalR) {
+        console.error('SignalR client library was not loaded.');
+        return;
+    }
 
-    const eventSources = new Map();
+    const connections = new Map();
+
     document.querySelectorAll('[data-scan-status-events]').forEach(component => {
-        const apiBaseUrl = component.dataset.apiBaseUrl;
-        if (eventSources.has(apiBaseUrl)) return;
+        const hubUrl = component.dataset.hubUrl;
+        if (!hubUrl || connections.has(hubUrl)) return;
 
-        const events = new EventSource(component.dataset.eventsUrl);
-        eventSources.set(apiBaseUrl, events);
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl(hubUrl, { transport: signalR.HttpTransportType.WebSockets })
+            .withAutomaticReconnect()
+            .configureLogging(signalR.LogLevel.Information)
+            .build();
 
-        events.addEventListener('scan-status', event => {
-            const update = JSON.parse(event.data);
+        connections.set(hubUrl, connection);
+
+        connection.on('scanStatusChanged', update => {
+            console.info('[SignalR] Odebrano scanStatusChanged:', update);
             const matchingRows = document.querySelectorAll('[data-third-party-document-id]');
 
             matchingRows.forEach(row => {
@@ -37,5 +46,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
             document.dispatchEvent(new CustomEvent('scan-status-changed', { detail: update }));
         });
+
+        connection.onreconnecting(error => {
+            console.warn('[SignalR] Ponawianie połączenia:', error);
+        });
+
+        connection.onreconnected(connectionId => {
+            console.info('[SignalR] Połączenie przywrócone:', connectionId);
+        });
+
+        connection.onclose(error => {
+            console.error('[SignalR] Połączenie zamknięte:', error);
+            void startConnection(connection);
+        });
+
+        void startConnection(connection);
     });
+
+    async function startConnection(connection) {
+        while (connection.state === signalR.HubConnectionState.Disconnected) {
+            try {
+                await connection.start();
+                console.info('[SignalR] Połączono:', connection.connectionId);
+                return;
+            } catch (error) {
+                console.error('[SignalR] Nie udało się połączyć; ponowię za 5 sekund:', error);
+                await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+        }
+    }
 });

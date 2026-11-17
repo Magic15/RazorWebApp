@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using FluentValidation;
 using RazorPagesWebApi.Validation;
 
@@ -8,7 +9,7 @@ namespace RazorPagesWebApi.Controllers;
 [Route("api/scanned-documents")]
 public sealed class ScannedDocumentsController(
     ScannedDocumentStore scannedDocumentStore,
-    ScanStatusEvents statusEvents,
+    IHubContext<ScanStatusHub> scanStatusHub,
     IValidator<UploadScannedDocumentRequest> uploadValidator,
     IValidator<UpdateScanStatusRequest> statusValidator) : ControllerBase
 {
@@ -76,7 +77,9 @@ public sealed class ScannedDocumentsController(
         if (!updated)
             return NotFound(new { error = "Nie znaleziono dokumentu lub jego rekordu skanowania." });
 
-        statusEvents.Publish(new ScanStatusChanged(thirdPartyDocumentId, request.Status));
+        await scanStatusHub.Clients.All.SendAsync(
+            "scanStatusChanged",
+            new ScanStatusChanged(thirdPartyDocumentId, request.Status));
         return Ok(new { thirdPartyDocumentId, status = request.Status });
     }
 }

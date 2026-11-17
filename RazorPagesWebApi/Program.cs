@@ -14,14 +14,14 @@ builder.Services.AddCors(options =>
     options.AddPolicy("Frontend", policy => policy
         .WithOrigins(allowedOrigins)
         .AllowAnyHeader()
-        .AllowAnyMethod());
+        .WithMethods("GET", "POST", "DELETE")
+        .AllowCredentials());
 });
+builder.Services.AddSignalR();
 
 builder.Services.AddScoped<IValidator<CreateDocumentRequest>, CreateDocumentRequestValidator>();
 builder.Services.AddScoped<IValidator<UploadScannedDocumentRequest>, UploadScannedDocumentRequestValidator>();
 builder.Services.AddScoped<IValidator<UpdateScanStatusRequest>, UpdateScanStatusRequestValidator>();
-builder.Services.AddSingleton<ScanStatusEvents>();
-
 var databasePath = Path.Combine(builder.Environment.ContentRootPath, "data", "documents.db");
 Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
 var connectionString = new SqliteConnectionStringBuilder
@@ -46,5 +46,6 @@ app.UseRouting();
 app.UseCors("Frontend");
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<ScanStatusHub>("/hubs/scan-status").RequireCors("Frontend");
 
 app.Run();

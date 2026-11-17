@@ -7,15 +7,15 @@ public sealed class ScanStatusEventsViewComponent(IConfiguration configuration) 
     public IViewComponentResult Invoke()
     {
         var apiBaseUrl = (configuration["BackendApi:BaseUrl"] ?? "http://localhost:5280").TrimEnd('/');
-        var eventsPath = configuration["BackendApi:ScanStatusEventsPath"]
-                         ?? throw new InvalidOperationException("BackendApi:ScanStatusEventsPath is not configured.");
-        var eventsUrl = Uri.TryCreate(eventsPath, UriKind.Absolute, out var absoluteEventsUrl) &&
-                        (absoluteEventsUrl.Scheme == Uri.UriSchemeHttp || absoluteEventsUrl.Scheme == Uri.UriSchemeHttps)
-            ? absoluteEventsUrl.ToString()
-            : new Uri(new Uri(apiBaseUrl + "/"), eventsPath.TrimStart('/')).ToString();
+        var hubPath = configuration["BackendApi:ScanStatusHubPath"]
+                      ?? throw new InvalidOperationException("BackendApi:ScanStatusHubPath is not configured.");
+        var hubUrl = Uri.TryCreate(hubPath, UriKind.Absolute, out var absoluteHubUrl) &&
+                     (absoluteHubUrl.Scheme == Uri.UriSchemeHttp || absoluteHubUrl.Scheme == Uri.UriSchemeHttps)
+            ? absoluteHubUrl.ToString()
+            : new Uri(new Uri(apiBaseUrl + "/"), hubPath.TrimStart('/')).ToString();
 
-        return View("Default", new ScanStatusEventsComponentModel(apiBaseUrl, eventsUrl));
+        return View("Default", new ScanStatusEventsComponentModel(apiBaseUrl, hubUrl));
     }
 }
 
-public sealed record ScanStatusEventsComponentModel(string ApiBaseUrl, string EventsUrl);
+public sealed record ScanStatusEventsComponentModel(string ApiBaseUrl, string HubUrl);
